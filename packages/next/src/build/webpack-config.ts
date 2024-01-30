@@ -1789,6 +1789,7 @@ export default async function getBaseWebpackConfig(
         new MiddlewarePlugin({
           dev,
           sriEnabled: !dev && !!config.experimental.sri?.algorithm,
+          rewrites,
         }),
       isClient &&
         new BuildManifestPlugin({
