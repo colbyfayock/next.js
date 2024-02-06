@@ -9,7 +9,10 @@ import {
   PrefetchCacheEntryStatus,
   PrefetchKind,
 } from '../router-reducer-types'
-import type { PrefetchAction } from '../router-reducer-types'
+import type {
+  PrefetchAction,
+  PrefetchCacheEntry,
+} from '../router-reducer-types'
 import { prefetchReducer } from './prefetch-reducer'
 import { fetchServerResponse } from '../fetch-server-response'
 
@@ -121,7 +124,6 @@ describe('prefetchReducer', () => {
       initialHead: null,
       initialCanonicalUrl,
       initialSeedData: ['', {}, children],
-      initialFlightData: [['']],
       initialParallelRoutes,
       location: new URL('/linking', 'https://localhost') as any,
     })
@@ -279,7 +281,6 @@ describe('prefetchReducer', () => {
       initialHead: null,
       initialCanonicalUrl,
       initialSeedData: ['', {}, children],
-      initialFlightData: [['']],
       initialParallelRoutes,
       location: new URL('/linking', 'https://localhost') as any,
     })
@@ -290,7 +291,6 @@ describe('prefetchReducer', () => {
       initialHead: null,
       initialCanonicalUrl,
       initialSeedData: ['', {}, children],
-      initialFlightData: [['']],
       initialParallelRoutes,
       location: new URL('/linking', 'https://localhost') as any,
     })
@@ -327,6 +327,7 @@ describe('prefetchReducer', () => {
       prefetchTime: expect.any(Number),
       treeAtTimeOfPrefetch: initialTree,
       key: '/linking',
+      status: PrefetchCacheEntryStatus.fresh,
     })
 
     const expectedState: ReturnType<typeof prefetchReducer> = {
