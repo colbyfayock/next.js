@@ -7,11 +7,10 @@ import { PrefetchKind } from '../router-reducer-types'
 import { NEXT_RSC_UNION_QUERY } from '../../app-router-headers'
 import { PromiseQueue } from '../../promise-queue'
 import {
-  createPrefetchCacheKey,
-  createPrefetchCacheEntry,
+  createLazyPrefetchEntry,
   getPrefetchCacheEntry,
   prunePrefetchCache,
-} from './prefetch-cache-utils'
+} from '../prefetch-cache-utils'
 
 export const prefetchQueue = new PromiseQueue(5)
 
@@ -25,7 +24,11 @@ export function prefetchReducer(
   const { url } = action
   url.searchParams.delete(NEXT_RSC_UNION_QUERY)
 
-  const cacheEntry = getPrefetchCacheEntry(url, state)
+  const cacheEntry = getPrefetchCacheEntry({
+    url,
+    nextUrl: state.nextUrl,
+    prefetchCache: state.prefetchCache,
+  })
 
   if (cacheEntry) {
     /**
@@ -53,15 +56,14 @@ export function prefetchReducer(
     }
   }
 
-  const prefetchCacheKey = createPrefetchCacheKey(url)
-  const newEntry = createPrefetchCacheEntry({
-    state,
+  createLazyPrefetchEntry({
     url,
+    tree: state.tree,
+    buildId: state.buildId,
+    prefetchCache: state.prefetchCache,
+    nextUrl: state.nextUrl,
     kind: action.kind,
-    prefetchCacheKey,
   })
-
-  state.prefetchCache.set(prefetchCacheKey, newEntry)
 
   return state
 }

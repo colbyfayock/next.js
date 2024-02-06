@@ -4,7 +4,11 @@ import type { FlightData } from '../../../../server/app-render/types'
 import type { FlightRouterState } from '../../../../server/app-render/types'
 import type { CacheNode } from '../../../../shared/lib/app-router-context.shared-runtime'
 import { createInitialRouterState } from '../create-initial-router-state'
-import { ACTION_PREFETCH, PrefetchKind } from '../router-reducer-types'
+import {
+  ACTION_PREFETCH,
+  PrefetchCacheEntryStatus,
+  PrefetchKind,
+} from '../router-reducer-types'
 import type { PrefetchAction } from '../router-reducer-types'
 import { prefetchReducer } from './prefetch-reducer'
 import { fetchServerResponse } from '../fetch-server-response'
@@ -127,6 +131,8 @@ describe('prefetchReducer', () => {
       url,
       initialTree,
       null,
+      state.buildId,
+      state.prefetchCache,
       PrefetchKind.AUTO
     )
     const action: PrefetchAction = {
@@ -153,6 +159,7 @@ describe('prefetchReducer', () => {
             kind: PrefetchKind.AUTO,
             lastUsedTime: null,
             prefetchTime: expect.any(Number),
+            status: PrefetchCacheEntryStatus.fresh,
             treeAtTimeOfPrefetch: [
               '',
               {
@@ -282,6 +289,7 @@ describe('prefetchReducer', () => {
       initialTree,
       null,
       state.buildId,
+      state.prefetchCache,
       PrefetchKind.AUTO
     )
     const action: PrefetchAction = {
@@ -310,6 +318,7 @@ describe('prefetchReducer', () => {
             prefetchTime: expect.any(Number),
             kind: PrefetchKind.AUTO,
             lastUsedTime: null,
+            status: PrefetchCacheEntryStatus.fresh,
             treeAtTimeOfPrefetch: [
               '',
               {

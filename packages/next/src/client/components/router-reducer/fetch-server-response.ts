@@ -27,8 +27,9 @@ import {
 } from '../app-router-headers'
 import { urlToUrlWithoutFlightMarker } from '../app-router'
 import { callServer } from '../../app-call-server'
-import { PrefetchKind } from './router-reducer-types'
+import { PrefetchKind, type PrefetchCacheEntry } from './router-reducer-types'
 import { hexHash } from '../../../shared/lib/hash'
+import { prefixExistingPrefetchCacheEntry } from './prefetch-cache-utils'
 
 export type FetchServerResponseResult = [
   flightData: FlightData,
@@ -49,6 +50,7 @@ export async function fetchServerResponse(
   flightRouterState: FlightRouterState,
   nextUrl: string | null,
   currentBuildId: string,
+  prefetchCache?: Map<string, PrefetchCacheEntry>,
   prefetchKind?: PrefetchKind
 ): Promise<FetchServerResponseResult> {
   const headers: {
@@ -115,6 +117,16 @@ export async function fetchServerResponse(
     const postponed = !!res.headers.get(NEXT_DID_POSTPONE_HEADER)
     const interception = !!res.headers.get('vary')?.includes(NEXT_URL)
     let isFlightResponse = contentType === RSC_CONTENT_TYPE_HEADER
+
+    if (prefetchCache && interception) {
+      // If this fetch response corresponds with a prefetch to an interception route, we want to move it to
+      // a prefixed cache key to avoid clobbering an existing entry.
+      prefixExistingPrefetchCacheEntry({
+        url,
+        nextUrl,
+        prefetchCache,
+      })
+    }
 
     if (process.env.NODE_ENV === 'production') {
       if (process.env.__NEXT_CONFIG_OUTPUT === 'export') {
