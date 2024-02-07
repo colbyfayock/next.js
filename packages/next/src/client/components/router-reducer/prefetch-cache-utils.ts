@@ -33,6 +33,10 @@ function createPrefetchCacheKey(url: URL, nextUrl?: string | null) {
   return pathnameFromUrl
 }
 
+/**
+ * Used to take an existing cache entry and prefix it with the nextUrl, if it exists.
+ * This ensures that we don't have conflicting cache entries for the same URL (as is the case with route interception).
+ */
 export function prefixExistingPrefetchCacheEntry({
   url,
   nextUrl,
@@ -142,7 +146,7 @@ export function getPrefetchCacheEntry({
 }
 
 /**
- * Use to seed the prefetch cache with an entry for already-resolved data
+ * Use to seed the prefetch cache with data that has already been fetched.
  */
 export function createPrefetchEntry({
   nextUrl,
@@ -178,7 +182,7 @@ export function createPrefetchEntry({
 }
 
 /**
- * Creates a prefetch entry for data that has not been resolved. This will add the prefetch request to a promise queue.
+ * Creates a prefetch entry entry and enqueues a fetch request to retrieve the data.
  */
 export function createLazyPrefetchEntry({
   url,
