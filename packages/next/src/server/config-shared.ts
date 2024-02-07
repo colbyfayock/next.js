@@ -159,6 +159,7 @@ export interface NextJsWebpackConfig {
 }
 
 export interface ExperimentalConfig {
+  linkNoTouchStart?: boolean
   caseSensitiveRoutes?: boolean
   useDeploymentId?: boolean
   useDeploymentIdServerActions?: boolean
@@ -404,8 +405,11 @@ export type ExportPathMap = {
 }
 
 /**
- * Next configuration object
- * @see [configuration documentation](https://nextjs.org/docs/api-reference/next.config.js/introduction)
+ * Next.js can be configured through a `next.config.js` file in the root of your project directory.
+ *
+ * This can change the behavior, enable experimental features, and configure other advanced options.
+ *
+ * Read more: [Next.js Docs: `next.config.js`](https://nextjs.org/docs/api-reference/next.config.js/introduction)
  */
 export interface NextConfig extends Record<string, any> {
   exportPathMap?: (
@@ -812,6 +816,7 @@ export const defaultConfig: NextConfig = {
   experimental: {
     serverMinification: true,
     serverSourceMaps: false,
+    linkNoTouchStart: false,
     caseSensitiveRoutes: false,
     useDeploymentId: false,
     deploymentId: undefined,
