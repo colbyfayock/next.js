@@ -453,6 +453,16 @@ pub enum Entrypoint {
     },
 }
 
+impl Entrypoint {
+    pub fn page(&self) -> &AppPage {
+        match self {
+            Entrypoint::AppPage { page, .. } => page,
+            Entrypoint::AppRoute { page, .. } => page,
+            Entrypoint::AppMetadata { page, .. } => page,
+        }
+    }
+}
+
 #[turbo_tasks::value(transparent)]
 pub struct Entrypoints(IndexMap<AppPath, Entrypoint>);
 

@@ -87,6 +87,7 @@ import {
   REACT_LOADABLE_MANIFEST,
   MIDDLEWARE_REACT_LOADABLE_MANIFEST,
   MIDDLEWARE_BUILD_MANIFEST,
+  BLOCKED_PAGES,
 } from '../../../shared/lib/constants'
 
 import { getMiddlewareRouteMatcher } from '../../../shared/lib/router/utils/middleware-route-matcher'
@@ -125,7 +126,6 @@ import {
   deleteAppClientCache,
   deleteCache,
 } from '../../../build/webpack/plugins/nextjs-require-cache-hot-reloader'
-import { normalizeMetadataRoute } from '../../../lib/metadata/get-metadata-route'
 import { clearModuleContext, clearAllModuleContexts } from '../render-server'
 import type { ActionManifest } from '../../../build/webpack/plugins/flight-client-entry-plugin'
 import { denormalizePagePath } from '../../../shared/lib/page-path/denormalize-page-path'
@@ -141,6 +141,9 @@ import {
   MAGIC_IDENTIFIER_REGEX,
   decodeMagicIdentifier,
 } from '../../../shared/lib/magic-identifier'
+import { findPagePathData } from '../../dev/on-demand-entry-handler'
+import type { RouteDefinition } from '../../future/route-definitions/route-definition'
+import getAssetPathFromRoute from '../../../shared/lib/router/utils/get-asset-path-from-route'
 
 const MILLISECONDS_IN_NANOSECOND = 1_000_000
 const wsServer = new ws.Server({ noServer: true })
@@ -280,7 +283,12 @@ async function startWatcher(opts: SetupOpts) {
       serverAddr: `127.0.0.1:${opts.port}`,
     })
     const iter = project.entrypointsSubscribe()
+
+    // pathname -> route
     const curEntries: Map<string, Route> = new Map()
+    // originalName / page -> route
+    const curAppEntries: Map<string, Route> = new Map()
+
     const changeSubscriptions: Map<
       string,
       Promise<AsyncIterator<any>>
@@ -547,25 +555,17 @@ async function startWatcher(opts: SetupOpts) {
     async function loadPartialManifest<T>(
       name: string,
       pageName: string,
-      type:
-        | 'pages'
-        | 'app'
-        | 'app-route'
-        | 'middleware'
-        | 'instrumentation' = 'pages'
+      type: 'pages' | 'app' | 'middleware' | 'instrumentation' = 'pages'
     ): Promise<T> {
       const manifestPath = path.posix.join(
         distDir,
         `server`,
-        type === 'app-route' ? 'app' : type,
+        type,
         type === 'middleware' || type === 'instrumentation'
           ? ''
-          : pageName === '/'
-          ? 'index'
-          : pageName === '/index' || pageName.startsWith('/index/')
-          ? `/index${pageName}`
-          : pageName,
-        type === 'app' ? 'page' : type === 'app-route' ? 'route' : '',
+          : type === 'app'
+          ? pageName
+          : getAssetPathFromRoute(pageName),
         name
       )
       return JSON.parse(
@@ -597,7 +597,7 @@ async function startWatcher(opts: SetupOpts) {
 
     async function loadMiddlewareManifest(
       pageName: string,
-      type: 'pages' | 'app' | 'app-route' | 'middleware' | 'instrumentation'
+      type: 'pages' | 'app' | 'middleware' | 'instrumentation'
     ): Promise<void> {
       middlewareManifests.set(
         pageName,
@@ -629,13 +629,10 @@ async function startWatcher(opts: SetupOpts) {
       )
     }
 
-    async function loadAppPathManifest(
-      pageName: string,
-      type: 'app' | 'app-route' = 'app'
-    ): Promise<void> {
+    async function loadAppPathManifest(pageName: string): Promise<void> {
       appPathsManifests.set(
         pageName,
-        await loadPartialManifest(APP_PATHS_MANIFEST, pageName, type)
+        await loadPartialManifest(APP_PATHS_MANIFEST, pageName, 'app')
       )
     }
 
@@ -1111,14 +1108,18 @@ async function startWatcher(opts: SetupOpts) {
           globalEntries.error = entrypoints.pagesErrorEndpoint
 
           curEntries.clear()
+          curAppEntries.clear()
 
           for (const [pathname, route] of entrypoints.routes) {
             switch (route.type) {
               case 'page':
               case 'page-api':
+                curEntries.set(pathname, route)
+                break
               case 'app-page':
               case 'app-route': {
                 curEntries.set(pathname, route)
+                curAppEntries.set(route.originalName, route)
                 break
               }
               default:
@@ -1133,7 +1134,7 @@ async function startWatcher(opts: SetupOpts) {
               continue
             }
 
-            if (!curEntries.has(pathname)) {
+            if (!curEntries.has(pathname) && !curAppEntries.has(pathname)) {
               const subscription = await subscriptionPromise
               subscription.return?.()
               changeSubscriptions.delete(pathname)
@@ -1484,7 +1485,27 @@ async function startWatcher(opts: SetupOpts) {
         isApp,
         url: requestUrl,
       }) {
-        let page = definition?.pathname ?? inputPage
+        if (
+          inputPage !== '/_error' &&
+          BLOCKED_PAGES.indexOf(inputPage) !== -1
+        ) {
+          return
+        }
+
+        let routeDef: Pick<
+          RouteDefinition,
+          'filename' | 'bundlePath' | 'page'
+        > =
+          definition ??
+          (await findPagePathData(
+            dir,
+            inputPage,
+            nextConfig.pageExtensions,
+            pagesDir,
+            appDir
+          ))
+
+        let page = routeDef.page
 
         if (page === '/_error') {
           let finishBuilding = startBuilding(page, requestUrl)
@@ -1535,14 +1556,11 @@ async function startWatcher(opts: SetupOpts) {
           }
           return
         }
+
         await currentEntriesHandling
-        const route =
-          curEntries.get(page) ??
-          curEntries.get(
-            normalizeAppPath(
-              normalizeMetadataRoute(definition?.page ?? inputPage)
-            )
-          )
+        const route = routeDef.bundlePath.startsWith('app/')
+          ? curAppEntries.get(page)
+          : curEntries.get(page)
 
         if (!route) {
           // TODO: why is this entry missing in turbopack?
@@ -1715,7 +1733,7 @@ async function startWatcher(opts: SetupOpts) {
 
               await loadAppBuildManifest(page)
               await loadBuildManifest(page, 'app')
-              await loadAppPathManifest(page, 'app')
+              await loadAppPathManifest(page)
               await loadActionManifest(page)
               await loadFontManifest(page, 'app')
               await writeManifests()
@@ -1733,9 +1751,9 @@ async function startWatcher(opts: SetupOpts) {
 
               const type = writtenEndpoint?.type
 
-              await loadAppPathManifest(page, 'app-route')
+              await loadAppPathManifest(page)
               if (type === 'edge') {
-                await loadMiddlewareManifest(page, 'app-route')
+                await loadMiddlewareManifest(page, 'app')
               } else {
                 middlewareManifests.delete(page)
               }
