@@ -372,11 +372,12 @@ export default class NextNodeServer extends BaseServer {
     ) as PagesManifest
   }
 
-  protected getInterceptionRouteRewrites(): ManifestRewriteRoute[] {
+  protected getinterceptionRoutePatterns(): RegExp[] {
     const routesManifest = this.getRoutesManifest()
     return (
-      routesManifest?.rewrites.beforeFiles.filter(isInterceptionRouteRewrite) ??
-      []
+      routesManifest?.rewrites.beforeFiles
+        .filter(isInterceptionRouteRewrite)
+        .map((rewrite) => new RegExp(rewrite.regex)) ?? []
     )
   }
 

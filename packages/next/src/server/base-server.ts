@@ -323,7 +323,7 @@ export default abstract class Server<ServerOptions extends Options = Options> {
   protected readonly serverOptions: Readonly<ServerOptions>
   protected readonly appPathRoutes?: Record<string, string[]>
   protected readonly clientReferenceManifest?: ClientReferenceManifest
-  protected interceptionRouteRewrites: ManifestRewriteRoute[]
+  protected interceptionRoutePatterns: RegExp[]
   protected nextFontManifest?: NextFontManifest
   private readonly responseCache: ResponseCacheBase
 
@@ -332,7 +332,7 @@ export default abstract class Server<ServerOptions extends Options = Options> {
   protected abstract getPagesManifest(): PagesManifest | undefined
   protected abstract getAppPathsManifest(): PagesManifest | undefined
   protected abstract getBuildId(): string
-  protected abstract getInterceptionRouteRewrites(): ManifestRewriteRoute[]
+  protected abstract getinterceptionRoutePatterns(): RegExp[]
 
   protected readonly enabledDirectories: NextEnabledDirectories
   protected abstract getEnabledDirectories(dev: boolean): NextEnabledDirectories
@@ -566,7 +566,7 @@ export default abstract class Server<ServerOptions extends Options = Options> {
     this.pagesManifest = this.getPagesManifest()
     this.appPathsManifest = this.getAppPathsManifest()
     this.appPathRoutes = this.getAppPathRoutes()
-    this.interceptionRouteRewrites = this.getInterceptionRouteRewrites()
+    this.interceptionRoutePatterns = this.getinterceptionRoutePatterns()
 
     // Configure the routes.
     this.matchers = this.getRouteMatchers()
@@ -1749,8 +1749,8 @@ export default abstract class Server<ServerOptions extends Options = Options> {
   protected pathCouldBeIntercepted(resolvedPathname: string): boolean {
     return (
       isInterceptionRouteAppPath(resolvedPathname) ||
-      this.interceptionRouteRewrites?.some((rewrite) => {
-        return new RegExp(rewrite.regex).test(resolvedPathname)
+      this.interceptionRoutePatterns?.some((regexp) => {
+        return regexp.test(resolvedPathname)
       })
     )
   }
